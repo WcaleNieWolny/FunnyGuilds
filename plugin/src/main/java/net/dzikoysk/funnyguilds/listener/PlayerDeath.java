@@ -335,12 +335,12 @@ public class PlayerDeath implements Listener {
     private Option<Player> getDamager(EntityDamageByEntityEvent event) {
         Option<Entity> damager = Option.of(event.getDamager());
 
-        Option<Player> playerOption = Option.of(damager)
+        Option<Player> playerOption = damager
                 .is(TNTPrimed.class)
                 .map(TNTPrimed::getSource)
                 .is(Player.class);
 
-        return Option.of(damager)
+        return damager
                 .is(EnderCrystal.class)
                 .filter(lastInteract::containsKey)
                 .map(lastInteract::get)

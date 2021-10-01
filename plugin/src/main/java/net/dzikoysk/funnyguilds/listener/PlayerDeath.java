@@ -28,6 +28,7 @@ import net.dzikoysk.funnyguilds.user.UserManager;
 import net.dzikoysk.funnyguilds.user.UserRank;
 import net.dzikoysk.funnyguilds.user.UserUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -76,6 +77,7 @@ public class PlayerDeath implements Listener {
         }
 
         lastInteract.put((EnderCrystal) rightClicked, player);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> lastInteract.remove(rightClicked), 10L);
     }
 
     @EventHandler

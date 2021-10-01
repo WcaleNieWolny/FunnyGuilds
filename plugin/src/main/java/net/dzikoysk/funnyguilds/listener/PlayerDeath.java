@@ -25,15 +25,24 @@ import net.dzikoysk.funnyguilds.shared.bukkit.MaterialUtils;
 import net.dzikoysk.funnyguilds.user.User;
 import net.dzikoysk.funnyguilds.user.UserCache;
 import net.dzikoysk.funnyguilds.user.UserManager;
+import net.dzikoysk.funnyguilds.user.UserRank;
 import net.dzikoysk.funnyguilds.user.UserUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.bukkit.entity.EnderCrystal;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import panda.std.Option;
 import panda.utilities.text.Formatter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,11 +51,11 @@ import java.util.Map.Entry;
 public class PlayerDeath implements Listener {
 
     private final FunnyGuilds plugin;
-
     private final RankManager rankManager;
     private final UserManager userManager;
-
     private final RankSystem rankSystem;
+
+    private final Map<EnderCrystal, Player> lastInteract = new HashMap<>();
 
     public PlayerDeath(FunnyGuilds plugin) {
         this.plugin = plugin;
@@ -58,17 +67,36 @@ public class PlayerDeath implements Listener {
     }
 
     @EventHandler
+    public void onInteract(PlayerInteractEntityEvent event) {
+        Player player = event.getPlayer();
+        Entity rightClicked = event.getRightClicked();
+
+        if (!(rightClicked instanceof EnderCrystal)) {
+            return;
+        }
+
+        lastInteract.put((EnderCrystal) rightClicked, player);
+    }
+
+    @EventHandler
     public void onDeath(PlayerDeathEvent event) {
         PluginConfiguration config = plugin.getPluginConfiguration();
         Player playerVictim = event.getEntity();
-        Player playerAttacker = event.getEntity().getKiller();
+        Option<Player> attackerOption = Option.of(event.getEntity().getKiller());
 
         User victim = UserUtils.get(playerVictim.getUniqueId());
         UserCache victimCache = victim.getCache();
 
-        victim.getRank().updateDeaths(currentValue -> currentValue + 1);
+        UserRank victimRank = victim.getRank();
+        victimRank.updateDeaths(currentValue -> currentValue + 1);
 
-        if (playerAttacker == null) {
+        EntityDamageEvent lastEvent = playerVictim.getLastDamageCause();
+
+        if (attackerOption.isEmpty() && lastEvent instanceof EntityDamageByEntityEvent) {
+            attackerOption = getDamager((EntityDamageByEntityEvent) lastEvent);
+        }
+
+        if (attackerOption.isEmpty()) {
             if (!config.considerLastAttackerAsKiller) {
                 victimCache.clearDamage();
                 return;
@@ -88,9 +116,10 @@ public class PlayerDeath implements Listener {
                 return;
             }
 
-            playerAttacker = lastAttacker.getPlayer();
+            attackerOption = Option.of(lastAttacker.getPlayer());
         }
 
+        Player playerAttacker = attackerOption.get();
         User attacker = UserUtils.get(playerAttacker.getUniqueId());
         UserCache attackerCache = attacker.getCache();
 
@@ -149,19 +178,17 @@ public class PlayerDeath implements Listener {
             }
         }
 
-        int[] rankChanges = new int[2];
-        int victimPoints = victim.getRank().getPoints();
-        int attackerPoints = attacker.getRank().getPoints();
+        UserRank attackerRank = attacker.getRank();
 
-        RankSystem.RankResult result = rankSystem.calculate(config.rankSystem, attackerPoints, victimPoints);
+        RankSystem.RankResult result = rankSystem.calculate(config.rankSystem, attackerRank.getPoints(), victimRank.getPoints());
 
-        RankChangeEvent attackerEvent = new PointsChangeEvent(EventCause.USER, attacker.getRank(), attacker, result.getAttackerPoints());
-        RankChangeEvent victimEvent = new PointsChangeEvent(EventCause.USER, victim.getRank(), attacker, result.getVictimPoints());
+        RankChangeEvent attackerEvent = new PointsChangeEvent(EventCause.USER, attackerRank, attacker, result.getAttackerPoints());
+        RankChangeEvent victimEvent = new PointsChangeEvent(EventCause.USER, victimRank, attacker, result.getVictimPoints());
 
         List<String> assistEntries = new ArrayList<>();
         List<User> messageReceivers = new ArrayList<>();
 
-        int victimPointsBeforeChange = victim.getRank().getPoints();
+        int victimPointsBeforeChange = victimRank.getPoints();
 
         if (SimpleEventHandler.handle(attackerEvent) && SimpleEventHandler.handle(victimEvent)) {
             double attackerDamage = victimCache.killedBy(attacker);
@@ -210,13 +237,13 @@ public class PlayerDeath implements Listener {
                 attackerEvent.setChange((int) Math.round(updatedAttackerPoints));
             }
 
-            attacker.getRank().updateKills(currentValue -> currentValue + 1);
-            attacker.getRank().updatePoints(currentValue -> currentValue + attackerEvent.getChange());
+            attackerRank.updateKills(currentValue -> currentValue + 1);
+            attackerRank.updatePoints(currentValue -> currentValue + attackerEvent.getChange());
             attackerCache.registerVictim(victim);
 
-            victimPointsBeforeChange = victim.getRank().getPoints();
+            victimPointsBeforeChange = victimRank.getPoints();
 
-            victim.getRank().updatePoints(currentValue -> currentValue - victimEvent.getChange());
+            victimRank.updatePoints(currentValue -> currentValue - victimEvent.getChange());
             victimCache.registerKiller(attacker);
             victimCache.clearDamage();
 
@@ -252,8 +279,8 @@ public class PlayerDeath implements Listener {
                 .register("{VICTIM}", victim.getName())
                 .register("{+}", Integer.toString(attackerEvent.getChange()))
                 .register("{-}", Math.min(victimPointsBeforeChange, victimEvent.getChange()))
-                .register("{POINTS-FORMAT}", IntegerRange.inRangeToString(victimPoints, config.pointsFormat))
-                .register("{POINTS}", Integer.toString(victim.getRank().getPoints()))
+                .register("{POINTS-FORMAT}", IntegerRange.inRangeToString(victimRank.getPoints(), config.pointsFormat))
+                .register("{POINTS}", Integer.toString(victimRank.getPoints()))
                 .register("{WEAPON}", MaterialUtils.getMaterialName(playerAttacker.getItemInHand().getType()))
                 .register("{WEAPON-NAME}", MaterialUtils.getItemCustomName(playerAttacker.getItemInHand()))
                 .register("{REMAINING-HEALTH}", String.format(Locale.US, "%.2f", playerAttacker.getHealth()))
@@ -303,18 +330,19 @@ public class PlayerDeath implements Listener {
 
     }
 
-    private int[] getEloValues(int victimPoints, int attackerPoints) {
-        PluginConfiguration config = plugin.getPluginConfiguration();
+    private Option<Player> getDamager(EntityDamageByEntityEvent event) {
+        Option<Entity> damager = Option.of(event.getDamager());
 
-        int[] rankChanges = new int[2];
+        Option<Player> playerOption = Option.of(damager)
+                .is(TNTPrimed.class)
+                .map(TNTPrimed::getSource)
+                .is(Player.class);
 
-        int attackerElo = IntegerRange.inRange(attackerPoints, config.eloConstants).orElseGet(0);
-        int victimElo = IntegerRange.inRange(victimPoints, config.eloConstants).orElseGet(0);
-
-        rankChanges[0] = (int) Math.round(attackerElo * (1 - (1.0D / (1.0D + Math.pow(config.eloExponent, (victimPoints - attackerPoints) / config.eloDivider)))));
-        rankChanges[1] = (int) Math.round(victimElo * (0 - (1.0D / (1.0D + Math.pow(config.eloExponent, (attackerPoints - victimPoints) / config.eloDivider)))) * -1);
-
-        return rankChanges;
+        return Option.of(damager)
+                .is(EnderCrystal.class)
+                .filter(lastInteract::containsKey)
+                .map(lastInteract::get)
+                .orElse(playerOption);
     }
 
 }

@@ -1,5 +1,7 @@
 package net.dzikoysk.funnyguilds.listener;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import net.dzikoysk.funnyguilds.FunnyGuilds;
 import net.dzikoysk.funnyguilds.concurrency.ConcurrencyManager;
 import net.dzikoysk.funnyguilds.concurrency.ConcurrencyTask;
@@ -28,7 +30,6 @@ import net.dzikoysk.funnyguilds.user.UserManager;
 import net.dzikoysk.funnyguilds.user.UserRank;
 import net.dzikoysk.funnyguilds.user.UserUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -43,11 +44,12 @@ import panda.std.Option;
 import panda.utilities.text.Formatter;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 public class PlayerDeath implements Listener {
 
@@ -56,7 +58,10 @@ public class PlayerDeath implements Listener {
     private final UserManager userManager;
     private final RankSystem rankSystem;
 
-    private final Map<EnderCrystal, Player> lastInteract = new HashMap<>();
+    private final Cache<EnderCrystal, Player> lastInteract = CacheBuilder
+            .newBuilder()
+            .expireAfterWrite(500, TimeUnit.MILLISECONDS)
+            .build();
 
     public PlayerDeath(FunnyGuilds plugin) {
         this.plugin = plugin;
@@ -77,7 +82,6 @@ public class PlayerDeath implements Listener {
         }
 
         lastInteract.put((EnderCrystal) rightClicked, player);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> lastInteract.remove(rightClicked), 10L);
     }
 
     @EventHandler
@@ -333,6 +337,7 @@ public class PlayerDeath implements Listener {
     }
 
     private Option<Player> getDamager(EntityDamageByEntityEvent event) {
+        ConcurrentMap<EnderCrystal, Player> cache = lastInteract.asMap();
         Option<Entity> damager = Option.of(event.getDamager());
 
         Option<Player> playerOption = damager
@@ -342,8 +347,8 @@ public class PlayerDeath implements Listener {
 
         return damager
                 .is(EnderCrystal.class)
-                .filter(lastInteract::containsKey)
-                .map(lastInteract::get)
+                .filter(cache::containsKey)
+                .map(cache::get)
                 .orElse(playerOption);
     }
 

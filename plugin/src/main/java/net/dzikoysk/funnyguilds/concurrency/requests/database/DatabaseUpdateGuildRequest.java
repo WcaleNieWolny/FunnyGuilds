@@ -14,6 +14,7 @@ import net.dzikoysk.funnyguilds.data.flat.FlatGuild;
 import net.dzikoysk.funnyguilds.data.flat.FlatRegion;
 import net.dzikoysk.funnyguilds.data.flat.FlatUser;
 import net.dzikoysk.funnyguilds.guild.Guild;
+import net.dzikoysk.funnyguilds.guild.GuildDatabase;
 
 public class DatabaseUpdateGuildRequest extends DefaultConcurrencyRequest {
 
@@ -30,9 +31,12 @@ public class DatabaseUpdateGuildRequest extends DefaultConcurrencyRequest {
     @Override
     public void execute() {
         try {
-            if (this.dataModel instanceof SQLDataModel) {
-                DatabaseGuild.save(guild);
+            GuildDatabase guildDatabase = dataModel.getGuildDatabase();
 
+            guildDatabase.saveGuild(guild);
+
+            // Deprecated
+            if (this.dataModel instanceof SQLDataModel) {
                 if (this.config.regionsEnabled) {
                     DatabaseRegion.save(guild.getRegion());
                 }
@@ -41,10 +45,8 @@ public class DatabaseUpdateGuildRequest extends DefaultConcurrencyRequest {
                 return;
             }
 
+            // Deprecated
             if (this.dataModel instanceof FlatDataModel) {
-                FlatGuild flatGuild = new FlatGuild(guild);
-                flatGuild.serialize((FlatDataModel) this.dataModel);
-
                 if (this.config.regionsEnabled) {
                     FlatRegion flatRegion = new FlatRegion(guild.getRegion());
                     flatRegion.serialize((FlatDataModel) this.dataModel);

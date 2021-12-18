@@ -12,6 +12,9 @@ import org.jetbrains.annotations.ApiStatus;
 
 public final class GuildUtils {
 
+    private GuildUtils() {
+    }
+
     @Deprecated
     @ApiStatus.ScheduledForRemoval(inVersion = "5.0")
     public static int countGuilds() {
@@ -195,9 +198,6 @@ public final class GuildUtils {
     public static boolean validateTag(PluginConfiguration pluginConfiguration, String guildTag) {
         return pluginConfiguration.whitelist == pluginConfiguration.restrictedGuildTags.stream()
                 .anyMatch(tag -> tag.equalsIgnoreCase(guildTag));
-    }
-
-    private GuildUtils() {
     }
 
 }

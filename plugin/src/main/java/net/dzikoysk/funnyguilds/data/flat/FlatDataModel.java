@@ -7,12 +7,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import net.dzikoysk.funnyguilds.Entity.EntityType;
 import net.dzikoysk.funnyguilds.FunnyGuilds;
-import net.dzikoysk.funnyguilds.concurrency.ConcurrencyManager;
-import net.dzikoysk.funnyguilds.concurrency.requests.database.DatabaseFixAlliesRequest;
-import net.dzikoysk.funnyguilds.concurrency.requests.prefix.PrefixGlobalUpdateRequest;
 import net.dzikoysk.funnyguilds.data.DataModel;
 import net.dzikoysk.funnyguilds.data.util.YamlWrapper;
 import net.dzikoysk.funnyguilds.guild.Guild;
+import net.dzikoysk.funnyguilds.guild.GuildDatabase;
+import net.dzikoysk.funnyguilds.guild.GuildManager;
 import net.dzikoysk.funnyguilds.guild.GuildUtils;
 import net.dzikoysk.funnyguilds.guild.Region;
 import net.dzikoysk.funnyguilds.guild.RegionUtils;
@@ -23,14 +22,18 @@ import org.apache.commons.lang3.StringUtils;
 
 public class FlatDataModel implements DataModel {
 
+    private final FunnyGuilds plugin;
     private final File guildsFolderFile;
     private final File regionsFolderFile;
     private final File usersFolderFile;
+    private final FlatGuildDatabase guildDatabase;
 
-    public FlatDataModel(FunnyGuilds funnyGuilds) {
-        this.guildsFolderFile = new File(funnyGuilds.getPluginDataFolder(), "guilds");
-        this.regionsFolderFile = new File(funnyGuilds.getPluginDataFolder(), "regions");
-        this.usersFolderFile = new File(funnyGuilds.getPluginDataFolder(), "users");
+    public FlatDataModel(FunnyGuilds plugin) {
+        this.plugin = plugin;
+        this.guildsFolderFile = new File(plugin.getPluginDataFolder(), "guilds");
+        this.regionsFolderFile = new File(plugin.getPluginDataFolder(), "regions");
+        this.usersFolderFile = new File(plugin.getPluginDataFolder(), "users");
+        this.guildDatabase = new FlatGuildDatabase(this);
 
         FlatPatcher flatPatcher = new FlatPatcher();
         flatPatcher.patch(this);
@@ -86,7 +89,12 @@ public class FlatDataModel implements DataModel {
     public void load() {
         this.loadUsers();
         this.loadRegions();
-        this.loadGuilds();
+
+        GuildManager guildManager = plugin.getGuildManager();
+
+        for (Guild guild : this.guildDatabase.getAllGuilds()) {
+            guildManager.addGuild(guild);
+        }
 
         this.validateLoadedData();
     }
@@ -96,6 +104,11 @@ public class FlatDataModel implements DataModel {
         this.saveUsers(ignoreNotChanged);
         this.saveRegions(ignoreNotChanged);
         this.saveGuilds(ignoreNotChanged);
+    }
+
+    @Override
+    public GuildDatabase getGuildDatabase() {
+        return guildDatabase;
     }
 
     private void saveUsers(boolean ignoreNotChanged) {
@@ -251,61 +264,13 @@ public class FlatDataModel implements DataModel {
     }
 
     private void saveGuilds(boolean ignoreNotChanged) {
-        int errors = 0;
-
         for (Guild guild : GuildUtils.getGuilds()) {
             if (ignoreNotChanged && !guild.wasChanged()) {
                 continue;
             }
 
-            if (!new FlatGuild(guild).serialize(this)) {
-                errors++;
-            }
+            guildDatabase.saveGuild(guild);
         }
-
-        if (errors > 0) {
-            FunnyGuilds.getPluginLogger().error("Guilds save errors: " + errors);
-        }
-    }
-
-    private void loadGuilds() {
-        GuildUtils.getGuilds().clear();
-        File[] path = guildsFolderFile.listFiles();
-        int errors = 0;
-
-        if (path == null) {
-            FunnyGuilds.getPluginLogger().warning("Guilds directory is empty");
-            return;
-        }
-
-        for (File file : path) {
-            Guild guild = FlatGuild.deserialize(file);
-
-            if (guild == null) {
-                errors++;
-                continue;
-            }
-
-            guild.wasChanged();
-        }
-
-        for (Guild guild : GuildUtils.getGuilds()) {
-            if (guild.getOwner() != null) {
-                continue;
-            }
-
-            errors++;
-            FunnyGuilds.getPluginLogger().error("In guild " + guild.getTag() + " owner not exist!");
-        }
-
-        if (errors > 0) {
-            FunnyGuilds.getPluginLogger().error("Guild load errors " + errors);
-        }
-
-        ConcurrencyManager concurrencyManager = FunnyGuilds.getInstance().getConcurrencyManager();
-        concurrencyManager.postRequests(new DatabaseFixAlliesRequest(), new PrefixGlobalUpdateRequest());
-
-        FunnyGuilds.getPluginLogger().info("Loaded guilds: " + GuildUtils.getGuilds().size());
     }
 
 }

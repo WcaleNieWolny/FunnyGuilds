@@ -21,6 +21,7 @@ import net.dzikoysk.funnyguilds.user.UserManager;
 import net.dzikoysk.funnyguilds.user.UserUtils;
 import panda.std.Option;
 
+@Deprecated
 public class DatabaseGuild {
 
     public static Guild deserialize(ResultSet rs) {
@@ -110,7 +111,7 @@ public class DatabaseGuild {
             values[14] = deputies;
             values[15] = pvp;
 
-            return DeserializationUtils.deserializeGuild(plugin.getPluginConfiguration(), plugin.getGuildManager(), values);
+            return DeserializationUtils.deserializeGuild(plugin.getPluginConfiguration(), values);
         }
         catch (Exception ex) {
             FunnyGuilds.getPluginLogger().error("Could not deserialize guild (id: " + id + ", name: " + name + ")", ex);

@@ -11,13 +11,12 @@ import net.dzikoysk.funnyguilds.data.database.element.SQLElement;
 import net.dzikoysk.funnyguilds.data.database.element.SQLTable;
 import net.dzikoysk.funnyguilds.data.database.element.SQLType;
 import net.dzikoysk.funnyguilds.guild.Guild;
+import net.dzikoysk.funnyguilds.guild.GuildDatabase;
 import net.dzikoysk.funnyguilds.guild.GuildManager;
 import net.dzikoysk.funnyguilds.guild.Region;
 import net.dzikoysk.funnyguilds.guild.RegionUtils;
-import net.dzikoysk.funnyguilds.shared.bukkit.ChatUtils;
 import net.dzikoysk.funnyguilds.user.User;
 import net.dzikoysk.funnyguilds.user.UserUtils;
-import panda.std.Option;
 
 public class SQLDataModel implements DataModel {
 
@@ -27,21 +26,13 @@ public class SQLDataModel implements DataModel {
     public static SQLTable tabRegions;
     public static SQLTable tabGuilds;
 
+    private SQLGuildDatabase guildDatabase;
+
     public SQLDataModel() {
         instance = this;
-        loadModels();
-    }
 
-    public static SQLDataModel getInstance() {
-        if (instance != null) {
-            return instance;
-        }
-
-        return new SQLDataModel();
-    }
-
-    public static void loadModels() {
         PluginConfiguration pluginConfiguration = FunnyGuilds.getInstance().getPluginConfiguration();
+
         tabUsers = new SQLTable(pluginConfiguration.mysql.usersTableName);
         tabRegions = new SQLTable(pluginConfiguration.mysql.regionsTableName);
         tabGuilds = new SQLTable(pluginConfiguration.mysql.guildsTableName);
@@ -83,6 +74,16 @@ public class SQLDataModel implements DataModel {
         tabGuilds.add("info", SQLType.TEXT);
         tabGuilds.add("deputy", SQLType.TEXT);
         tabGuilds.setPrimaryKey("uuid");
+
+        guildDatabase = new SQLGuildDatabase();
+    }
+
+    public static SQLDataModel getInstance() {
+        if (instance != null) {
+            return instance;
+        }
+
+        return new SQLDataModel();
     }
 
     public void load() throws SQLException {
@@ -92,9 +93,15 @@ public class SQLDataModel implements DataModel {
 
         loadUsers();
         loadRegions();
-        loadGuilds();
 
-        ConcurrencyManager concurrencyManager = FunnyGuilds.getInstance().getConcurrencyManager();
+        FunnyGuilds plugin = FunnyGuilds.getInstance();
+        GuildManager guildManager = plugin.getGuildManager();
+
+        for (Guild guild : this.guildDatabase.getAllGuilds()) {
+            guildManager.addGuild(guild);
+        }
+
+        ConcurrencyManager concurrencyManager = plugin.getConcurrencyManager();
         concurrencyManager.postRequests(new PrefixGlobalUpdateRequest());
     }
 
@@ -139,52 +146,6 @@ public class SQLDataModel implements DataModel {
         FunnyGuilds.getPluginLogger().info("Loaded regions: " + RegionUtils.getRegions().size());
     }
 
-    public void loadGuilds() throws SQLException {
-        GuildManager guildManager = FunnyGuilds.getInstance().getGuildManager();
-
-        SQLBasicUtils.getSelectAll(SQLDataModel.tabGuilds).executeQuery(resultAll -> {
-            while (resultAll.next()) {
-                Guild guild = DatabaseGuild.deserialize(resultAll);
-
-                if (guild != null) {
-                    guild.wasChanged();
-                }
-            }
-        });
-
-        SQLBasicUtils.getSelect(SQLDataModel.tabGuilds, "tag", "allies", "enemies").executeQuery(result -> {
-            while (result.next()) {
-                Option<Guild> guildOption = guildManager.findByTag(result.getString("tag"));
-                if (guildOption.isEmpty()) {
-                    continue;
-                }
-
-                Guild guild = guildOption.get();
-
-                String alliesList = result.getString("allies");
-                String enemiesList = result.getString("enemies");
-
-                if (alliesList != null && !alliesList.equals("")) {
-                    guild.setAllies(guildManager.findByNames(ChatUtils.fromString(alliesList)));
-                }
-
-                if (enemiesList != null && !enemiesList.equals("")) {
-                    guild.setEnemies(guildManager.findByNames(ChatUtils.fromString(enemiesList)));
-                }
-            }
-        });
-
-        for (Guild guild : guildManager.getGuilds()) {
-            if (guild.getOwner() != null) {
-                continue;
-            }
-
-            guildManager.deleteGuild(guild);
-        }
-
-        FunnyGuilds.getPluginLogger().info("Loaded guilds: " + guildManager.countGuilds());
-    }
-
     @Override
     public void save(boolean ignoreNotChanged) {
         for (User user : FunnyGuilds.getInstance().getUserManager().getUsers()) {
@@ -223,4 +184,10 @@ public class SQLDataModel implements DataModel {
             SQLBasicUtils.getAlter(table, sqlElement).executeUpdate(true);
         }
     }
+
+    @Override
+    public GuildDatabase getGuildDatabase() {
+        return null;
+    }
+
 }

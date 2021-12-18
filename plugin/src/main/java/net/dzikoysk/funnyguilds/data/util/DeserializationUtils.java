@@ -16,7 +16,7 @@ import org.bukkit.Location;
 public final class DeserializationUtils {
 
     @SuppressWarnings("unchecked")
-    public static Guild deserializeGuild(PluginConfiguration pluginConfiguration, GuildManager guildManager, Object[] values) {
+    public static Guild deserializeGuild(PluginConfiguration pluginConfiguration, Object[] values) {
         if (values == null) {
             FunnyGuilds.getPluginLogger().error("[Deserialize] Cannot deserialize guild! Caused by: null");
             return null;
@@ -31,12 +31,7 @@ public final class DeserializationUtils {
                     ? rawGuildTag.toUpperCase()
                     : rawGuildTag.toLowerCase();
 
-        Guild guild = guildManager.findByUuid(guildUuid)
-                .orElseGet(() -> {
-                    Guild newGuild = new Guild(guildUuid, guildName, guildTag);
-                    guildManager.addGuild(newGuild);
-                    return newGuild;
-                });
+        Guild guild = new Guild(guildUuid, guildName, guildTag);
 
         guild.setOwner((User) values[3]);
         guild.setHome((Location) values[4]);

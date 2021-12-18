@@ -6,6 +6,7 @@ import net.dzikoysk.funnyguilds.data.util.DeserializationUtils;
 import net.dzikoysk.funnyguilds.data.util.YamlWrapper;
 import net.dzikoysk.funnyguilds.user.User;
 
+@Deprecated
 public class FlatUser {
 
     private final User user;
@@ -49,6 +50,7 @@ public class FlatUser {
         return DeserializationUtils.deserializeUser(FunnyGuilds.getInstance().getUserManager(), values);
     }
 
+    @Deprecated
     public boolean serialize(FlatDataModel flatDataModel) {
         File file = flatDataModel.getUserFile(user);
         if (file.isDirectory()) {

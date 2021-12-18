@@ -9,6 +9,7 @@ import net.dzikoysk.funnyguilds.guild.Region;
 import net.dzikoysk.funnyguilds.shared.bukkit.LocationUtils;
 import org.bukkit.Location;
 
+@Deprecated
 public class DatabaseRegion {
 
     public static Region deserialize(ResultSet rs) {

@@ -8,6 +8,7 @@ import net.dzikoysk.funnyguilds.data.database.element.SQLTable;
 import net.dzikoysk.funnyguilds.data.util.DeserializationUtils;
 import net.dzikoysk.funnyguilds.user.User;
 
+@Deprecated
 public class DatabaseUser {
 
     public static User deserialize(ResultSet rs) {

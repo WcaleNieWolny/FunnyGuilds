@@ -7,6 +7,7 @@ import net.dzikoysk.funnyguilds.config.PluginConfiguration;
 import net.dzikoysk.funnyguilds.data.database.SQLDataModel;
 import net.dzikoysk.funnyguilds.data.flat.FlatDataModel;
 import net.dzikoysk.funnyguilds.guild.Guild;
+import net.dzikoysk.funnyguilds.guild.GuildDatabase;
 import net.dzikoysk.funnyguilds.guild.GuildUtils;
 import net.dzikoysk.funnyguilds.guild.Region;
 import net.dzikoysk.funnyguilds.guild.RegionUtils;
@@ -16,6 +17,8 @@ public interface DataModel {
     void load() throws SQLException;
 
     void save(boolean ignoreNotChanged);
+
+    GuildDatabase getGuildDatabase();
 
     default void validateLoadedData() {
         if (!FunnyGuilds.getInstance().getPluginConfiguration().regionsEnabled) {
@@ -62,4 +65,5 @@ public interface DataModel {
 
         return new FlatDataModel(funnyGuilds);
     }
+
 }

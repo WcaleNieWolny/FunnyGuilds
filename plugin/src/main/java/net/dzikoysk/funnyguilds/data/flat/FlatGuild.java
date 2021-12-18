@@ -24,6 +24,7 @@ import net.dzikoysk.funnyguilds.user.UserUtils;
 import org.bukkit.Location;
 import panda.std.Option;
 
+@Deprecated
 public class FlatGuild {
 
     private final Guild guild;
@@ -144,53 +145,7 @@ public class FlatGuild {
         values[14] = deputies;
         values[15] = pvp;
 
-        return DeserializationUtils.deserializeGuild(configuration, guildManager, values);
-    }
-
-    public boolean serialize(FlatDataModel flatDataModel) {
-        if (guild.getName() == null) {
-            FunnyGuilds.getPluginLogger().error("[Serialize] Cannot serialize guild! Caused by: name is null");
-            return false;
-        }
-
-        if (guild.getTag() == null) {
-            FunnyGuilds.getPluginLogger().error("[Serialize] Cannot serialize guild: " + guild.getName() + "! Caused by: tag is null");
-            return false;
-        }
-
-        if (guild.getOwner() == null) {
-            FunnyGuilds.getPluginLogger().error("[Serialize] Cannot serialize guild: " + guild.getName() + "! Caused by: owner is null");
-            return false;
-        }
-
-        if (guild.getRegion() == null && FunnyGuilds.getInstance().getPluginConfiguration().regionsEnabled) {
-            FunnyGuilds.getPluginLogger().error("[Serialize] Cannot serialize guild: " + guild.getName() + "! Caused by: region is null");
-            return false;
-        }
-
-        File file = flatDataModel.loadCustomFile(EntityType.GUILD, guild.getName());
-        YamlWrapper wrapper = new YamlWrapper(file);
-
-        wrapper.set("uuid", guild.getUUID().toString());
-        wrapper.set("name", guild.getName());
-        wrapper.set("tag", guild.getTag());
-        wrapper.set("owner", guild.getOwner().getName());
-        wrapper.set("home", LocationUtils.toString(guild.getHome()));
-        wrapper.set("members", UserUtils.getNames(guild.getMembers()));
-        wrapper.set("region", RegionUtils.toString(guild.getRegion()));
-        wrapper.set("regions", null);
-        wrapper.set("allies", GuildUtils.getNames(guild.getAllies()));
-        wrapper.set("enemies", GuildUtils.getNames(guild.getEnemies()));
-        wrapper.set("born", guild.getBorn());
-        wrapper.set("validity", guild.getValidity());
-        wrapper.set("attacked", guild.getProtection()); //TODO: [FG 5.0] attacked -> protection
-        wrapper.set("lives", guild.getLives());
-        wrapper.set("ban", guild.getBan());
-        wrapper.set("pvp", guild.getPvP());
-        wrapper.set("deputy", ChatUtils.toString(UserUtils.getNames(guild.getDeputies()), false));
-
-        wrapper.save();
-        return true;
+        return DeserializationUtils.deserializeGuild(configuration, values);
     }
 
     @SuppressWarnings("unchecked")

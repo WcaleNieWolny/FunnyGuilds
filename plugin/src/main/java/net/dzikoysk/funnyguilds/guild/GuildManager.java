@@ -267,13 +267,8 @@ public class GuildManager {
             globalGuild.removeEnemy(guild);
         }
 
-        if (this.plugin.getDataModel() instanceof FlatDataModel) {
-            FlatDataModel dataModel = ((FlatDataModel) this.plugin.getDataModel());
-            dataModel.getGuildFile(guild).delete();
-        }
-        else if (this.plugin.getDataModel() instanceof SQLDataModel) {
-            DatabaseGuild.delete(guild);
-        }
+        GuildDatabase guildDatabase = this.plugin.getDataModel().getGuildDatabase();
+        guildDatabase.deleteGuild(guild);
 
         removeGuild(guild);
         PluginHook.HOLOGRAPHIC_DISPLAYS.deleteHologram(guild);

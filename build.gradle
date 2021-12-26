@@ -1,7 +1,7 @@
 plugins {
     id 'idea'
     id 'org.ajoberstar.grgit' version '4.1.1'
-    id 'com.github.johnrengelman.shadow' version '7.1.0'
+    id 'com.github.johnrengelman.shadow' version '7.1.1'
     id 'maven-publish'
     id 'checkstyle'
 }
@@ -29,7 +29,7 @@ subprojects {
         maven { url "https://repo.panda-lang.org/releases" }
         maven { url "https://libraries.minecraft.net" }
         maven { url "https://storehouse.okaeri.eu/repository/maven-public" }
-        maven { url "https://maven.sk89q.com/repo" }
+        maven { url "https://maven.enginehub.org/repo" }
         maven { url "https://repo.extendedclip.com/content/repositories/placeholderapi" }
         maven { url "https://nexus.codecrafter47.de/content/repositories/public" }
         maven { url "https://repo.mvdw-software.com/content/groups/public" }

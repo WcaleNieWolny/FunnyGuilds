@@ -1,6 +1,11 @@
 package net.dzikoysk.funnyguilds.data.database;
 
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import net.dzikoysk.funnyguilds.Entity;
 import net.dzikoysk.funnyguilds.FunnyGuilds;
 import net.dzikoysk.funnyguilds.concurrency.ConcurrencyManager;
 import net.dzikoysk.funnyguilds.concurrency.requests.prefix.PrefixGlobalUpdateRequest;
@@ -8,15 +13,22 @@ import net.dzikoysk.funnyguilds.config.PluginConfiguration;
 import net.dzikoysk.funnyguilds.data.DataModel;
 import net.dzikoysk.funnyguilds.data.database.element.SQLBasicUtils;
 import net.dzikoysk.funnyguilds.data.database.element.SQLElement;
+import net.dzikoysk.funnyguilds.data.database.element.SQLNamedStatement;
 import net.dzikoysk.funnyguilds.data.database.element.SQLTable;
 import net.dzikoysk.funnyguilds.data.database.element.SQLType;
 import net.dzikoysk.funnyguilds.guild.Guild;
 import net.dzikoysk.funnyguilds.guild.GuildDatabase;
 import net.dzikoysk.funnyguilds.guild.GuildManager;
+import net.dzikoysk.funnyguilds.guild.GuildUtils;
 import net.dzikoysk.funnyguilds.guild.Region;
 import net.dzikoysk.funnyguilds.guild.RegionUtils;
+import net.dzikoysk.funnyguilds.shared.bukkit.ChatUtils;
+import net.dzikoysk.funnyguilds.shared.bukkit.LocationUtils;
 import net.dzikoysk.funnyguilds.user.User;
 import net.dzikoysk.funnyguilds.user.UserUtils;
+import panda.std.Option;
+import panda.std.reactive.Completable;
+import panda.std.stream.PandaStream;
 
 public class SQLDataModel implements DataModel {
 
@@ -25,8 +37,6 @@ public class SQLDataModel implements DataModel {
     public static SQLTable tabUsers;
     public static SQLTable tabRegions;
     public static SQLTable tabGuilds;
-
-    private SQLGuildDatabase guildDatabase;
 
     public SQLDataModel() {
         instance = this;
@@ -74,8 +84,6 @@ public class SQLDataModel implements DataModel {
         tabGuilds.add("info", SQLType.TEXT);
         tabGuilds.add("deputy", SQLType.TEXT);
         tabGuilds.setPrimaryKey("uuid");
-
-        guildDatabase = new SQLGuildDatabase();
     }
 
     public static SQLDataModel getInstance() {
@@ -97,9 +105,7 @@ public class SQLDataModel implements DataModel {
         FunnyGuilds plugin = FunnyGuilds.getInstance();
         GuildManager guildManager = plugin.getGuildManager();
 
-        for (Guild guild : this.guildDatabase.getAllGuilds()) {
-            guildManager.addGuild(guild);
-        }
+        this.getAllGuilds().subscribe(guilds -> guilds.forEach(guildManager::addGuild));
 
         ConcurrencyManager concurrencyManager = plugin.getConcurrencyManager();
         concurrencyManager.postRequests(new PrefixGlobalUpdateRequest());
@@ -186,8 +192,98 @@ public class SQLDataModel implements DataModel {
     }
 
     @Override
-    public GuildDatabase getGuildDatabase() {
-        return null;
+    public Completable<Boolean> saveGuild(Guild guild) {
+        String members = ChatUtils.toString(Entity.names(guild.getMembers()), false);
+        String deputies = ChatUtils.toString(Entity.names(guild.getDeputies()), false);
+        String allies = ChatUtils.toString(Entity.names(guild.getAllies()), false);
+        String enemies = ChatUtils.toString(Entity.names(guild.getEnemies()), false);
+        SQLNamedStatement statement = SQLBasicUtils.getInsert(SQLDataModel.tabGuilds);
+
+        statement.set("uuid", guild.getUUID().toString());
+        statement.set("name", guild.getName());
+        statement.set("tag", guild.getTag());
+        statement.set("owner", guild.getOwner().getName());
+        statement.set("home", LocationUtils.toString(guild.getHome()));
+        statement.set("region", RegionUtils.toString(guild.getRegion()));
+        statement.set("regions", "#abandoned");
+        statement.set("members", members);
+        statement.set("deputy", deputies);
+        statement.set("allies", allies);
+        statement.set("enemies", enemies);
+        statement.set("points", guild.getRank().getAveragePoints());
+        statement.set("lives", guild.getLives());
+        statement.set("born", guild.getBorn());
+        statement.set("validity", guild.getValidity());
+        statement.set("attacked", guild.getProtection()); //TODO: [FG 5.0] attacked -> protection
+        statement.set("ban", guild.getBan());
+        statement.set("pvp", guild.getPvP());
+        statement.set("info", "");
+
+        statement.executeUpdate();
+
+        return Completable.completed(true);
+    }
+
+    @Override
+    public Completable<Boolean> deleteGuild(Guild guild) {
+        SQLNamedStatement statement = SQLBasicUtils.getDelete(SQLDataModel.tabGuilds);
+
+        statement.set("uuid", guild.getUUID().toString());
+        statement.executeUpdate();
+        return Completable.completed(true);
+    }
+
+    @Override
+    public Completable<Set<Guild>> getAllGuilds() {
+        Set<Guild> guilds = new HashSet<>();
+
+        SQLBasicUtils.getSelectAll(SQLDataModel.tabGuilds).executeQuery(resultAll -> {
+            while (resultAll.next()) {
+                Guild guild = DatabaseGuild.deserialize(resultAll);
+
+                if (guild == null) {
+                    continue;
+                }
+
+                guild.wasChanged();
+                guilds.add(guild);
+            }
+        });
+
+        SQLBasicUtils.getSelect(SQLDataModel.tabGuilds, "tag", "allies", "enemies").executeQuery(result -> {
+            while (result.next()) {
+                String tag = result.getString("tag");
+                Option<Guild> guildOption = PandaStream.of(guilds)
+                        .find(guild -> guild.getTag().equals(tag));
+
+                if (guildOption.isEmpty()) {
+                    continue;
+                }
+
+                Guild guild = guildOption.get();
+
+                String alliesList = result.getString("allies");
+                String enemiesList = result.getString("enemies");
+
+                if (alliesList != null && !alliesList.isEmpty()) {
+                    Set<Guild> allies = PandaStream.of(ChatUtils.fromString(alliesList))
+                            .flatMap(name -> PandaStream.of(guilds).find(ally -> ally.getName().equals(name)))
+                            .collect(Collectors.toSet());
+
+                    guild.setAllies(allies);
+                }
+
+                if (enemiesList != null && !enemiesList.isEmpty()) {
+                    Set<Guild> enemies = PandaStream.of(ChatUtils.fromString(enemiesList))
+                            .flatMap(name -> PandaStream.of(guilds).find(enemy -> enemy.getName().equals(name)))
+                            .collect(Collectors.toSet());
+
+                    guild.setEnemies(enemies);
+                }
+            }
+        });
+
+        return Completable.completed(guilds);
     }
 
 }

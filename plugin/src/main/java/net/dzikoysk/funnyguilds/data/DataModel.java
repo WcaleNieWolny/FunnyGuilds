@@ -13,13 +13,11 @@ import net.dzikoysk.funnyguilds.guild.GuildUtils;
 import net.dzikoysk.funnyguilds.guild.Region;
 import net.dzikoysk.funnyguilds.guild.RegionUtils;
 
-public interface DataModel {
+public interface DataModel extends GuildDatabase {
 
     void load() throws SQLException;
 
     void save(boolean ignoreNotChanged);
-
-    GuildDatabase getGuildDatabase();
 
     default void validateLoadedData() {
         if (!FunnyGuilds.getInstance().getPluginConfiguration().regionsEnabled) {

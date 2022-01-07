@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import net.dzikoysk.funnyguilds.FunnyGuilds;
-import net.dzikoysk.funnyguilds.feature.hooks.holographicdisplays.EmptyHologramManagerImpl;
 import net.dzikoysk.funnyguilds.feature.hooks.holographicdisplays.FunnyHologramManager;
 import net.dzikoysk.funnyguilds.feature.hooks.holographicdisplays.HolographicDisplaysHook;
 import net.dzikoysk.funnyguilds.feature.hooks.worldedit.WorldEdit6Hook;
@@ -14,19 +13,20 @@ import net.dzikoysk.funnyguilds.feature.hooks.worldguard.WorldGuard6Hook;
 import net.dzikoysk.funnyguilds.feature.hooks.worldguard.WorldGuard7Hook;
 import net.dzikoysk.funnyguilds.feature.hooks.worldguard.WorldGuardHook;
 import org.bukkit.Bukkit;
+import panda.std.Option;
 import panda.std.stream.PandaStream;
 
 public class HookManager {
 
-    public static WorldGuardHook WORLD_GUARD;
-    public static WorldEditHook WORLD_EDIT;
-    public static FunnyTabHook FUNNY_TAB;
-    public static VaultHook VAULT;
-    public static BungeeTabListPlusHook BUNGEE_TAB_LIST_PLUS;
-    public static MVdWPlaceholderAPIHook MVDW_PLACEHOLDER_API;
-    public static PlaceholderAPIHook PLACEHOLDER_API;
-    public static LeaderHeadsHook LEADER_HEADS;
-    public static FunnyHologramManager HOLOGRAPHIC_DISPLAYS;
+    public static Option<WorldGuardHook> WORLD_GUARD;
+    public static Option<WorldEditHook> WORLD_EDIT;
+    public static Option<FunnyTabHook> FUNNY_TAB;
+    public static Option<VaultHook> VAULT;
+    public static Option<BungeeTabListPlusHook> BUNGEE_TAB_LIST_PLUS;
+    public static Option<MVdWPlaceholderAPIHook> MVDW_PLACEHOLDER_API;
+    public static Option<PlaceholderAPIHook> PLACEHOLDER_API;
+    public static Option<LeaderHeadsHook> LEADER_HEADS;
+    public static Option<FunnyHologramManager> HOLOGRAPHIC_DISPLAYS;
 
     private final FunnyGuilds plugin;
 
@@ -55,7 +55,7 @@ public class HookManager {
                 Class.forName("com.sk89q.worldedit.Vector");
                 return new WorldEdit6Hook(pluginName);
             }
-            catch (ClassNotFoundException ignored) {
+            catch (ClassNotFoundException exception) {
                 return new WorldEdit7Hook(pluginName);
             }
         });
@@ -72,31 +72,30 @@ public class HookManager {
         MVDW_PLACEHOLDER_API = setupHook("MVdWPlaceholderAPI", pluginName -> new MVdWPlaceholderAPIHook(pluginName, plugin));
         PLACEHOLDER_API = setupHook("PlaceholderAPI", pluginName -> new PlaceholderAPIHook(pluginName, plugin));
         LEADER_HEADS = setupHook("LeaderHeads", pluginName -> new LeaderHeadsHook(pluginName, plugin));
-        HOLOGRAPHIC_DISPLAYS = setupHook("HolographicDisplays", pluginName -> Bukkit.getPluginManager().getPlugin("HolographicDisplays") != null
-                ? new HolographicDisplaysHook(pluginName, plugin)
-                : new EmptyHologramManagerImpl());
+        HOLOGRAPHIC_DISPLAYS = setupHook("HolographicDisplays", pluginName -> new HolographicDisplaysHook(pluginName, plugin), true);
         FUNNY_TAB = setupHook("FunnyTab", pluginName -> new FunnyTabHook(pluginName, plugin), false);
     }
 
-    public <T> T setupHook(String pluginName, Function<String, T> hookSupplier, boolean notifyIfMissing) {
+    public <T> Option<T> setupHook(String pluginName, Function<String, T> hookSupplier, boolean notifyIfMissing) {
         if (hookSupplier == null) {
-            return null;
+            return Option.none();
         }
 
         if (Bukkit.getPluginManager().getPlugin(pluginName) == null) {
             if (notifyIfMissing) {
                 FunnyGuilds.getPluginLogger().info(pluginName + " plugin could not be found, some features may not be available");
             }
-            return hookSupplier.apply(pluginName);
+
+            return Option.none();
         }
 
         T hook = hookSupplier.apply(pluginName);
         if (hook == null) {
-            return null;
+            return Option.none();
         }
 
         if (!(hook instanceof PluginHook)) {
-            return hook;
+            return Option.of(hook);
         }
 
         if (PandaStream.of(plugin.getPluginConfiguration().disabledHooks)
@@ -104,17 +103,17 @@ public class HookManager {
                 .isPresent()) {
             if (!pluginName.equalsIgnoreCase("FunnyTab")) {
                 FunnyGuilds.getPluginLogger().warning(pluginName + " plugin hook is disabled in configuration, some features may not be available");
-                return hook;
+                return Option.of(hook);
             }
 
             FunnyGuilds.getPluginLogger().warning("You can't disable FunnyTab plugin hook lol");
         }
 
         this.pluginHooks.put(pluginName, (PluginHook) hook);
-        return hook;
+        return Option.of(hook);
     }
 
-    public <T> T setupHook(String pluginName, Function<String, T> hookSupplier) {
+    public <T> Option<T> setupHook(String pluginName, Function<String, T> hookSupplier) {
         return this.setupHook(pluginName, hookSupplier, true);
     }
 

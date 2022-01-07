@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import net.dzikoysk.funnyguilds.Entity;
 import net.dzikoysk.funnyguilds.FunnyGuilds;
 import net.dzikoysk.funnyguilds.config.IntegerRange;
 import net.dzikoysk.funnyguilds.config.MessageConfiguration;
@@ -90,7 +91,7 @@ public final class DefaultTablistVariables {
             parser.add(variable);
         }
 
-        if (HookManager.WORLD_GUARD.isFullyInitialized()) {
+        if (HookManager.WORLD_GUARD.isPresent()) {
             String wgRegionNoValue = FunnyGuilds.getInstance().getMessageConfiguration().wgRegionNoValue;
 
             parser.add(new SimpleTablistVariable("WG-REGION", user -> {
@@ -104,7 +105,7 @@ public final class DefaultTablistVariables {
             }));
         }
 
-        if (HookManager.WORLD_GUARD.isFullyInitialized() && VaultHook.isEconomyHooked()) {
+        if (HookManager.VAULT.isPresent() && VaultHook.isEconomyHooked()) {
             parser.add(new SimpleTablistVariable("VAULT-MONEY", user -> {
                 Player userPlayer = user.getPlayer();
 
@@ -148,7 +149,7 @@ public final class DefaultTablistVariables {
         FUNNY_VARIABLES.put("g-deputies", GuildDependentTablistVariable.ofGuild("G-DEPUTIES",
                 guild -> guild.getDeputies().isEmpty()
                         ? messages.gDeputiesNoValue
-                        : ChatUtils.toString(UserUtils.getNames(guild.getDeputies()), false),
+                        : ChatUtils.toString(Entity.names(guild.getDeputies()), false),
                 user -> messages.gDeputiesNoValue));
 
         FUNNY_VARIABLES.put("g-deputy", GuildDependentTablistVariable.ofGuild("G-DEPUTY",
@@ -160,6 +161,7 @@ public final class DefaultTablistVariables {
         //FUNNY_VARIABLES.put("g-deputy", GuildDependentTablistVariable.ofGuild("G-DEPUTY", guild -> guild.getDeputies().isEmpty() ? messages.gDeputyNoValue : guild.getDeputies().iterator().next(RandomUtils.RANDOM_INSTANCE.nextInt(guild.getDeputies().size())).getName(), user -> messages.gDeputyNoValue));
 
         putGuild("g-lives", "G-LIVES", user -> user.getGuild().getLives(), user -> "0");
+        putGuild("g-lives-symbol", "G-LIVES-SYMBOL", user -> user.getGuild().getLives(), user -> panda.utilities.StringUtils.repeated(user.getGuild().getLives(), config.livesRepeatingSymbol));
         putGuild("g-allies", "G-ALLIES", user -> user.getGuild().getAllies().size(), user -> "0");
         putGuild("g-points", "G-POINTS", user -> user.getGuild().getRank().getAveragePoints(), user -> "0");
         putGuild("g-kills", "G-KILLS", user -> user.getGuild().getRank().getKills(), user -> "0");
@@ -169,7 +171,7 @@ public final class DefaultTablistVariables {
         putGuild("g-members-all", "G-MEMBERS-ALL", user -> user.getGuild().getMembers().size(), user -> "0");
 
         putGuild("g-validity", "G-VALIDITY",
-                user -> FunnyGuilds.getInstance().getPluginConfiguration().dateFormat.format(user.getGuild().getValidityDate()),
+                user -> messages.dateFormat.format(user.getGuild().getValidityDate()),
                 user -> messages.gValidityNoValue);
 
         putGuild("g-points-format", "G-POINTS-FORMAT",
@@ -205,7 +207,8 @@ public final class DefaultTablistVariables {
         }
 
         Location location = user.getPlayer().getLocation();
-        List<String> regionNames = HookManager.WORLD_GUARD.getRegionNames(location);
+        List<String> regionNames = HookManager.WORLD_GUARD.map(worldGuard -> worldGuard.getRegionNames(location))
+                .getOrNull();
 
         if (regionNames != null && !regionNames.isEmpty()) {
             return regionNames;

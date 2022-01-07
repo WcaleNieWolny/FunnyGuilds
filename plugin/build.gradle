@@ -28,34 +28,28 @@ dependencies {
     implementation "org.bstats:bstats-bukkit:2.2.1"
 
     // probably fix for some exception?
-    implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.17.0"
+    implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.17.1"
 
     // bukkit stuff
     shadow "org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT"
-    shadow "org.apache.logging.log4j:log4j-core:2.17.0"
+    shadow "org.apache.logging.log4j:log4j-core:2.17.1"
 
     // integrations
-    shadow("me.clip:placeholderapi:2.11.0") {
-        exclude group: "com.google.code.gson", module: "gson"
-        exclude group: "net.kyori", module: "adventure-platform-bukkit"
-    }
-    shadow "net.kyori:adventure-api:4.9.3"
-    shadow "net.kyori:adventure-platform-bukkit:4.0.2-SNAPSHOT"
-
-    shadow "me.robin:leaderheads-api:1.0.0"
+    shadow "com.sk89q.worldguard:worldguard-bukkit:7.0.5"
     shadow "net.milkbowl.vault:VaultAPI:1.7"
+    shadow "codecrafter47.bungeetablistplus:bungeetablistplus-api-bukkit:3.4.4"
     shadow("be.maximvdw:MVdWPlaceholderAPI:3.1.1-SNAPSHOT") {
         exclude group: "org.spigotmc", module: "spigot"
     }
-    shadow "codecrafter47.bungeetablistplus:bungeetablistplus-api-bukkit:3.4.4"
-
-    shadow("com.sk89q.worldedit:worldedit-bukkit:7.2.6") {
-        because "WorldEdit on versions higher than 7.2.6 causes GH-1708 for some unknown reason"
+    shadow("me.clip:placeholderapi:2.10.9") {
+        because "PlaceholderAPI on versions higher than 2.10.9 causes GH-1700 for some unknown reason"
+        exclude group: "com.google.code.gson", module: "gson"
     }
-    shadow "com.sk89q.worldguard:worldguard-bukkit:7.0.5"
+    shadow "net.kyori:adventure-api:4.9.3"
+    shadow "me.robin:leaderheads-api:1.0.0"
     shadow "com.gmail.filoghost.holographicdisplays:holographicdisplays-api:2.4.9"
 
-    testImplementation 'nl.jqno.equalsverifier:equalsverifier:3.8.1'
+    testImplementation 'nl.jqno.equalsverifier:equalsverifier:3.8.2'
     testImplementation 'org.spigotmc:spigot-api:1.16.2-R0.1-SNAPSHOT'
     testImplementation 'org.mockito:mockito-core:4.2.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:4.2.0'
@@ -73,7 +67,7 @@ processResources {
 }
 
 shadowJar {
-    archiveFileName = "FunnyGuilds ${project.version} (MC 1.8-1.17).jar"
+    archiveFileName = "FunnyGuilds ${project.version} (MC 1.8-1.18).jar"
 
     relocate "net.dzikoysk.funnycommands", "net.dzikoysk.funnyguilds.libs.net.dzikoysk.funnycommands"
     relocate "panda.utilities", "net.dzikoysk.funnyguilds.libs.panda.utilities"
